@@ -32,6 +32,14 @@ namespace Left4DeadHelper.Discord.Modules
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
+        private static readonly object MoveLock = new object();
+        private static bool _isMoving;
+        private static bool IsMoving
+        {
+            get { lock (MoveLock) { return _isMoving; } }
+            set { lock (MoveLock) { _isMoving = true; } }
+        }
+
         [Command]
         [Alias(Command)]
         [Summary("Moves users into respective voice channels based on game team.")]
@@ -43,6 +51,13 @@ namespace Left4DeadHelper.Discord.Modules
 
             try
             {
+                if (IsMoving)
+                {
+                    _logger.LogInformation("A move lock is already set; skipping.");
+                    return;
+                }
+                IsMoving = true;
+
                 using var rcon = _serviceProvider.GetRequiredService<IRCONWrapper>();
 
                 await rcon.ConnectAsync();
@@ -95,6 +110,10 @@ namespace Left4DeadHelper.Discord.Modules
             catch (Exception e)
             {
                 _logger.LogError(e, "Got an error trying to move players :(");
+            }
+            finally
+            {
+                IsMoving = false;
             }
         }
 
