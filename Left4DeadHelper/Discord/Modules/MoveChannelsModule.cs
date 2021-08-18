@@ -34,11 +34,6 @@ namespace Left4DeadHelper.Discord.Modules
 
         private static readonly object MoveLock = new object();
         private static bool _isMoving;
-        private static bool IsMoving
-        {
-            get { lock (MoveLock) { return _isMoving; } }
-            set { lock (MoveLock) { _isMoving = true; } }
-        }
 
         [Command]
         [Alias(Command)]
@@ -51,12 +46,15 @@ namespace Left4DeadHelper.Discord.Modules
 
             try
             {
-                if (IsMoving)
+                lock (MoveLock)
                 {
-                    _logger.LogInformation("A move lock is already set; skipping.");
-                    return;
+                    if (_isMoving)
+                    {
+                        _logger.LogInformation("A move lock is already set; skipping.");
+                        return;
+                    }
+                    _isMoving = true;
                 }
-                IsMoving = true;
 
                 using var rcon = _serviceProvider.GetRequiredService<IRCONWrapper>();
 
@@ -113,7 +111,7 @@ namespace Left4DeadHelper.Discord.Modules
             }
             finally
             {
-                IsMoving = false;
+                lock (MoveLock) { _isMoving = false; }
             }
         }
 
