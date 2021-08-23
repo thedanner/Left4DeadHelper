@@ -28,16 +28,29 @@ namespace Left4DeadHelper.Discord.Modules
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
+        private static readonly object MoveLock = new object();
+        private static bool _isMoving;
+
         [Command(Command)]
         [Alias(CommandAlias)]
         [Summary("Moves users from the configured secondary channel into the primary channel.")]
         [RequireUserPermission(GuildPermission.MoveMembers)]
         public async Task HandleVoiceChatAsync()
         {
+            if (Context.Message == null) return;
+            if (Context.Guild == null) return;
+
             try
             {
-                if (Context.Message == null) return;
-                if (Context.Guild == null) return;
+                lock (MoveLock)
+                {
+                    if (_isMoving)
+                    {
+                        _logger.LogInformation("A move lock is already set; skipping.");
+                        return;
+                    }
+                    _isMoving = true;
+                }
 
                 var settings = _serviceProvider.GetRequiredService<Settings>();
                 var guildSettings = settings.DiscordSettings.GuildSettings.FirstOrDefault(g => g.Id == Context.Guild.Id);
@@ -69,6 +82,10 @@ namespace Left4DeadHelper.Discord.Modules
             catch (Exception e)
             {
                 _logger.LogError(e, "Error trying to reuninte users :(");
+            }
+            finally
+            {
+                lock (MoveLock) { _isMoving = false; }
             }
         }
 
